@@ -1,0 +1,26 @@
+version: 0.2
+
+phases:
+  install:
+    runtime-versions:
+      nodejs: 12.x
+      docker: 18
+    commands:
+      - npm i
+      - curl -o jq https://stedolan.github.io/jq/download/linux64/jq
+      - chmod +x ./jq
+  pre_build:
+    commands:
+      - cp .env.sample .env
+      - DOCKER_HUB_USERNAME=$(aws secretsmanager get-secret-value --secret-id Build/Pipeline | jq '.SecretString' | jq -r . | jq .DOCKER_HUB_USERNAME)
+      - DOCKER_HUB_PASSWORD=$(aws secretsmanager get-secret-value --secret-id Build/Pipeline | jq '.SecretString' | jq -r . | jq .DOCKER_HUB_PASSWORD)
+      # Docker Hub へのログイン
+      - echo Logging in to Docker Hub...
+      - echo $DOCKER_HUB_PASSWORD | sed 's/"//g' | docker login -u $(echo $DOCKER_HUB_USERNAME | sed 's/"//g') --password-stdin
+  build:
+    commands:
+      - echo Build started on `date`
+      - docker-compose up -d
+      - echo Curl to mysql
+      - curl -v telnet://127.0.0.1:3306
+      - echo Build completed on `date`
